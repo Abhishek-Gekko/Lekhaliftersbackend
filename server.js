@@ -1,94 +1,149 @@
+
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
-const Enquiry = require("./models/Enquiry")
-const Quotation = require("./models/Quotation")
 require("dotenv").config();
+
+// Existing models
+const Enquiry = require("./models/Enquiry");
+const Quotation = require("./models/Quotation");
+
+// Crane submission imports
+const upload = require("./middleware/upload");
+const {
+  submitCrane,
+  getApprovedCranes,
+} = require("./controllers/craneController");
 
 const app = express();
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-app.get("/",(req,res)=>{
-    res.send("backend is running");
+// Home route
+app.get("/", (req, res) => {
+  res.send("Lekha Lifters backend is running");
 });
 
-mongoose.connect(process.env.MONG_URI).then(()=>{
-    console.log("Mongoose connected sucessfully");
-}).catch((error)=>{
-    console.log("Failed to connect: ",error)
-})
+// MongoDB connection
+mongoose
+  .connect(process.env.MONG_URI)
+  .then(() => {
+    console.log("MongoDB connected successfully");
+  })
+  .catch((error) => {
+    console.log("Failed to connect to MongoDB:", error);
+  });
 
-app.post("/api/enquiries", async (req,res)=>{
-   try { const{name,email,phone,message} = req.body;
+// ===================================
+// EXISTING ENQUIRY API
+// ===================================
 
-    const newEnquiry = new  Enquiry({
-        name,
-        email,
-        phone,
-        message
+app.post("/api/enquiries", async (req, res) => {
+  try {
+    const { name, email, phone, message } = req.body;
+
+    const newEnquiry = new Enquiry({
+      name,
+      email,
+      phone,
+      message,
     });
 
     await newEnquiry.save();
 
     res.status(201).json({
-        success:true,
-        message:"Sent sucessfully"
-    }); 
-} catch(error){
-    console.log("failed to fetch : ",error);
+      success: true,
+      message: "Sent successfully",
+    });
+  } catch (error) {
+    console.log("Failed to save enquiry:", error);
 
     res.status(500).json({
-        success:false,
-        message:"Failed to send"
+      success: false,
+      message: "Failed to send",
     });
-};   
-}); 
-
-app.post("/api/quotation", async (req, res) => {
-    try {
-      const {
-        Customername,
-        phone,
-        email,
-        brand,
-        model,
-        Companyname,
-        Quantity,
-        requirements,
-      } = req.body;
-
-      const newQuotation = new Quotation({
-        Customername,
-        phone,
-        email,
-        brand,
-        model,
-        Companyname,
-        Quantity,
-        requirements,
-      });
-
-      await newQuotation.save();
-
-      res.status(201).json({
-        success: true,
-        message: "Sent sucessfully",
-      });
-    } catch (error) {
-      console.log("failed to send", error);
-
-      res.status(500).json({
-        success: false,
-        message: "Failed to send",
-      });
-    }
+  }
 });
 
+// ===================================
+// EXISTING QUOTATION API
+// ===================================
 
+app.post("/api/quotation", async (req, res) => {
+  try {
+    const {
+      Customername,
+      phone,
+      email,
+      brand,
+      model,
+      Companyname,
+      Quantity,
+      requirements,
+    } = req.body;
 
-app.listen(5000,()=>{
-    console.log("http://localhost:5000")
-})
+    const newQuotation = new Quotation({
+      Customername,
+      phone,
+      email,
+      brand,
+      model,
+      Companyname,
+      Quantity,
+      requirements,
+    });
 
+    await newQuotation.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Sent successfully",
+    });
+  } catch (error) {
+    console.log("Failed to send quotation:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to send",
+    });
+  }
+});
+
+// ===================================
+// NEW CRANE SUBMISSION API
+// ===================================
+
+// Customer submits crane with image
+app.post(
+  "/api/cranes/submit",
+  upload.single("image"),
+  submitCrane
+);
+
+// Website displays only approved cranes
+app.get("/api/cranes/approved", getApprovedCranes);
+
+// ===================================
+// ERROR HANDLING
+// ===================================
+
+app.use((err, req, res, next) => {
+  console.error("Server error:", err);
+
+  res.status(400).json({
+    success: false,
+    message: err.message || "Something went wrong",
+  });
+});
+
+// ===================================
+// START SERVER
+// ===================================
+
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
